@@ -53,3 +53,12 @@ jobs:
         run: |
           docker push bozonx/${{ steps.versions.outputs.APP_NAME }}:${{ steps.versions.outputs.APP_VERSION }}
           docker push bozonx/${{ steps.versions.outputs.APP_NAME }}:latest
+
+      # Отправка webhook с Bearer auth
+      - name: Send Webhook
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.WEBHOOK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"status": "build_success", "ref": "${{ github.ref }}"}' \
+            ${{ secrets.WEBHOOK_URL }}

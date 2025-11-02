@@ -3,6 +3,7 @@
   "compilerOptions": {
     "types": ["jest", "node"],
     "noEmit": true,
+    "isolatedModules": true,
     "paths": {
       "@/*": ["src/*"],
       "@common/*": ["src/common/*"],
