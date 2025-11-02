@@ -20,7 +20,6 @@
     "useUnknownInCatchVariables": true,
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["node"],
     "paths": {
       "@/*": ["src/*"],
       "@common/*": ["src/common/*"],

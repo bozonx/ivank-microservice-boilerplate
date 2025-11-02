@@ -1,6 +1,6 @@
 services:
   nestjs-boilerplate:
-    image: bonzox/nestjs-boilerplate:latest
+    image: ghcr.io/bonzox/nestjs-boilerplate:latest
     container_name: nestjs-boilerplate
     ports:
       - '8080:80'
