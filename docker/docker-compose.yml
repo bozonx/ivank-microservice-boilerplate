@@ -2,6 +2,7 @@ services:
   nestjs-boilerplate:
     image: ghcr.io/bozonx/nestjs-boilerplate:latest
     container_name: nestjs-boilerplate
+    hostname: nestjs-boilerplate
     ports:
       - '8080:80'
     environment:
