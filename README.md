@@ -4,7 +4,7 @@
 
 ## Что включено
 
-- 🏥 Простой health-check эндпоинт `/{API_BASE_PATH}/{API_VERSION}/health`
+- 🏥 Простой health-check эндпоинт `/{API_BASE_PATH}/v1/health`
 - 📊 Логирование через Pino (JSON в prod)
 - 🛡️ Глобальный фильтр ошибок
 - ⚡ Fastify
@@ -48,13 +48,12 @@ URL по умолчанию (prod): `http://localhost:80/api/v1`
 - `LISTEN_HOST` — например, `0.0.0.0` или `localhost`
 - `LISTEN_PORT` — например, `80` или `3000`
 - `API_BASE_PATH` — префикс API (по умолчанию `api`)
-- `API_VERSION` — версия API (по умолчанию `v1`)
 - `LOG_LEVEL` — `trace|debug|info|warn|error|fatal|silent`
 - `TZ` — таймзона (по умолчанию `UTC`)
 
 ## Эндпоинты
 
-- `GET /{API_BASE_PATH}/{API_VERSION}/health`
+- `GET /{API_BASE_PATH}/v1/health`
 
 ## Тесты
 См. инструкции в `docs/dev.md`.
@@ -77,3 +76,4 @@ docker compose -f docker/docker-compose.yml up -d --build
 ## Лицензия
 
 MIT
+
