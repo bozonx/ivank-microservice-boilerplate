@@ -18,7 +18,7 @@ cp env.development.example .env.development
 pnpm start:dev
 ```
 
-- URL по умолчанию (dev): `http://localhost:3000/api/v1`
+- URL по умолчанию (dev): `http://localhost:8080/api/v1`
 
 ## Тесты
 

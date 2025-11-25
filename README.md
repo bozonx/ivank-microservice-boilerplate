@@ -30,7 +30,7 @@ pnpm build
 pnpm start:prod
 ```
 
-URL по умолчанию (prod): `http://localhost:80/api/v1`
+URL по умолчанию (prod): `http://localhost:8080/api/v1`
 Для Docker Compose: `http://localhost:8080/api/v1`
 
 ## Переменные окружения
@@ -46,7 +46,7 @@ URL по умолчанию (prod): `http://localhost:80/api/v1`
 
 - `NODE_ENV` — `production|development|test`
 - `LISTEN_HOST` — например, `0.0.0.0` или `localhost`
-- `LISTEN_PORT` — например, `80` или `3000`
+- `LISTEN_PORT` — по умолчанию `8080`
 - `API_BASE_PATH` — префикс API (по умолчанию `api`)
 - `LOG_LEVEL` — `trace|debug|info|warn|error|fatal|silent`
 - `TZ` — таймзона (по умолчанию `UTC`)
