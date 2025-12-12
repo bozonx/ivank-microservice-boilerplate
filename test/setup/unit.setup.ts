@@ -12,6 +12,7 @@
  */
 
 import nock from 'nock';
+import { beforeAll, afterEach, afterAll } from '@jest/globals';
 
 // Block all external network calls; allow localhost for tests that use local adapters
 beforeAll(() => {
