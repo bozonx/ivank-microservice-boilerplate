@@ -1,4 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test, type TestingModule } from '@nestjs/testing';
 import { HealthController } from '../../src/modules/health/health.controller.js';
 
 describe('HealthController (unit)', () => {
@@ -21,8 +21,8 @@ describe('HealthController (unit)', () => {
     expect(controller).toBeDefined();
   });
 
-  it('GET /api/v1/health returns ok', async () => {
-    const res = await controller.check();
+  it('GET /api/v1/health returns ok', () => {
+    const res = controller.check();
     expect(res).toEqual({ status: 'ok' });
   });
 });

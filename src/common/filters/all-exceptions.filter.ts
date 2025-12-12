@@ -29,7 +29,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exception instanceof HttpException
         ? exception.getStatus()
         : typeof (exception as { statusCode?: unknown })?.statusCode === 'number'
-          ? ((exception as { statusCode: number }).statusCode as number)
+          ? (exception as { statusCode: number }).statusCode
           : HttpStatus.INTERNAL_SERVER_ERROR;
 
     const message = this.extractMessage(exception);

@@ -13,7 +13,7 @@ import pkg from '../package.json' with { type: 'json' };
     ConfigModule.forRoot({
       isGlobal: true,
       load: [appConfig],
-      envFilePath: [`.env.${process.env.NODE_ENV || 'development'}`, '.env'],
+      envFilePath: [`.env.${process.env.NODE_ENV ?? 'development'}`, '.env'],
       cache: true,
     }),
     LoggerModule.forRootAsync({
@@ -32,15 +32,15 @@ import pkg from '../package.json' with { type: 'json' };
             },
             transport: isDev
               ? {
-                target: 'pino-pretty',
-                options: {
-                  colorize: true,
-                  singleLine: false,
-                  translateTime: "UTC:yyyy-mm-dd'T'HH:MM:ss.l'Z'",
-                  ignore: 'pid,hostname',
-                  messageFormat: '[{context}] {msg}',
-                },
-              }
+                  target: 'pino-pretty',
+                  options: {
+                    colorize: true,
+                    singleLine: false,
+                    translateTime: "UTC:yyyy-mm-dd'T'HH:MM:ss.l'Z'",
+                    ignore: 'pid,hostname',
+                    messageFormat: '[{context}] {msg}',
+                  },
+                }
               : undefined,
             serializers: {
               req: req => ({
@@ -79,7 +79,7 @@ import pkg from '../package.json' with { type: 'json' };
             autoLogging: {
               ignore: req => {
                 if (appConfig.nodeEnv === 'production') {
-                  return req.url?.includes('/health') || false;
+                  return req.url?.includes('/health') ?? false;
                 }
                 return false;
               },
@@ -98,4 +98,4 @@ import pkg from '../package.json' with { type: 'json' };
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}
