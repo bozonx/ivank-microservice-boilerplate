@@ -4,7 +4,7 @@
 
 ## Что включено
 
-- 🏥 Простой health-check эндпоинт `/{API_BASE_PATH}/v1/health`
+- 🏥 Простой health-check эндпоинт `/{BASE_PATH}/api/v1/health`
 - 📊 Логирование через Pino (JSON в prod)
 - 🛡️ Глобальный фильтр ошибок
 - ⚡ Fastify
@@ -47,13 +47,13 @@ URL по умолчанию (prod): `http://localhost:8080/api/v1`
 - `NODE_ENV` — `production|development|test`
 - `LISTEN_HOST` — например, `0.0.0.0` или `localhost`
 - `LISTEN_PORT` — по умолчанию `8080`
-- `API_BASE_PATH` — префикс API (по умолчанию `api`)
+- `BASE_PATH` — базовый путь сервиса (по умолчанию не задан, API будет в /api/v1)
 - `LOG_LEVEL` — `trace|debug|info|warn|error|fatal|silent`
 - `TZ` — таймзона (по умолчанию `UTC`)
 
 ## Эндпоинты
 
-- `GET /{API_BASE_PATH}/v1/health`
+- `GET /{BASE_PATH}/api/v1/health`
 
 ## Тесты
 См. инструкции в `docs/dev.md`.
