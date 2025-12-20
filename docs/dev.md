@@ -12,7 +12,7 @@
 pnpm install
 
 # 2) Окружение (dev)
-cp env.development.example .env.development
+cp .env.development.example .env.development
 
 # 3) Запуск в режиме разработки (watch)
 pnpm start:dev
