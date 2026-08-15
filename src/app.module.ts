@@ -6,29 +6,37 @@ import { HealthModule } from './modules/health/health.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import appConfig from './config/app.config.js';
 import type { AppConfig } from './config/app.config.js';
-import pkg from '../package.json' with { type: 'json' };
+import { SERVICE_NAME, SERVICE_VERSION } from './config/service-info.js';
+import { buildApiPrefix } from './common/http/api-prefix.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       load: [appConfig],
-      envFilePath: [`.env.${process.env.NODE_ENV ?? 'development'}`, '.env'],
+      // One env file. In containers the environment comes from the orchestrator and no
+      // file is read at all.
+      envFilePath: ['.env'],
       cache: true,
     }),
     LoggerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const appConfig = configService.get<AppConfig>('app')!;
-        const isDev = appConfig.nodeEnv === 'development';
+        const config = configService.get<AppConfig>('app');
+        if (!config) {
+          throw new Error('App configuration is missing; check config registration in AppModule');
+        }
+        const isDev = config.nodeEnv === 'development';
+        const healthPath = `/${buildApiPrefix(config.basePath)}/health`;
 
         return {
           pinoHttp: {
-            level: appConfig.logLevel,
+            level: config.logLevel,
             timestamp: () => `,"@timestamp":"${new Date().toISOString()}"`,
             base: {
-              service: (pkg as any).name ?? 'app',
-              environment: appConfig.nodeEnv,
+              service: SERVICE_NAME,
+              version: SERVICE_VERSION,
+              environment: config.nodeEnv,
             },
             transport: isDev
               ? {
@@ -61,7 +69,11 @@ import pkg from '../package.json' with { type: 'json' };
               }),
             },
             redact: {
-              paths: ['req.headers.authorization', 'req.headers["x-api-key"]'],
+              paths: [
+                'req.headers.authorization',
+                'req.headers["x-api-key"]',
+                'req.headers.cookie',
+              ],
               censor: '[REDACTED]',
             },
             customLogLevel: (req, res, err) => {
@@ -71,18 +83,12 @@ import pkg from '../package.json' with { type: 'json' };
               if (res.statusCode >= 400) {
                 return 'warn';
               }
-              if (res.statusCode >= 300) {
-                return 'info';
-              }
               return 'info';
             },
             autoLogging: {
-              ignore: req => {
-                if (appConfig.nodeEnv === 'production') {
-                  return req.url?.includes('/health') ?? false;
-                }
-                return false;
-              },
+              // Health is polled every few seconds; logging it in production is pure noise.
+              ignore: req =>
+                config.nodeEnv === 'production' && (req.url?.split('?')[0] ?? '') === healthPath,
             },
           },
         };

@@ -36,6 +36,14 @@ export default [
                 require: 'readonly',
                 exports: 'readonly',
                 global: 'readonly',
+                setTimeout: 'readonly',
+                clearTimeout: 'readonly',
+                setInterval: 'readonly',
+                clearInterval: 'readonly',
+                setImmediate: 'readonly',
+                clearImmediate: 'readonly',
+                URL: 'readonly',
+                fetch: 'readonly',
                 // ES2022 globals
                 Promise: 'readonly',
                 Symbol: 'readonly',
@@ -60,6 +68,9 @@ export default [
             '@typescript-eslint/explicit-function-return-type': 'off',
             '@typescript-eslint/explicit-module-boundary-types': 'off',
             '@typescript-eslint/no-explicit-any': 'warn',
+            // The base rule does not understand constructor parameter properties or
+            // type-only signatures, so it must be off for the TypeScript one to work.
+            'no-unused-vars': 'off',
             '@typescript-eslint/no-unused-vars': [
                 'error',
                 {
