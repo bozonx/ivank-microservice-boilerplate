@@ -7,6 +7,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Split CI and release workflows: pull requests run checks, e2e, and a no-push image build;
+  version tags publish cached multi-architecture images. Renovate policy is fleet-wide.
 - Fleet standard (`docs/standards.md`) and a compliance checklist (`docs/compliance-checklist.md`).
 - Optional Basic and Bearer authentication, applied in Fastify's `onRequest` hook so an unknown
   route cannot be used to probe past it.
