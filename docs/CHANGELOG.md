@@ -24,6 +24,7 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Upgraded `class-validator` to 0.15.1 after validating the full unit and e2e suites.
 - Node.js 22 to 24; pnpm pinned to 11.22.0 across the fleet.
 - Dockerfile now builds the project itself (multi-stage), runs as a non-root user and carries a
   `HEALTHCHECK`. It no longer expects a pre-built `dist/`.
