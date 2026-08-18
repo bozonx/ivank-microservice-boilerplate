@@ -2,6 +2,7 @@ import { registerAs } from '@nestjs/config';
 import { IsBoolean, IsInt, IsString, IsIn, Min, Max, validateSync } from 'class-validator';
 import { plainToClass } from 'class-transformer';
 import { normalizeBasePath } from '../common/http/api-prefix.js';
+import { parseBearerTokens, type BearerToken } from '../common/auth/auth.hook.js';
 
 export class AppConfig {
   @IsInt()
@@ -30,8 +31,8 @@ export class AppConfig {
   @IsString()
   public authBasicPass!: string;
 
-  /** Accepted Bearer tokens. Empty when Bearer auth is not configured. */
-  public authBearerTokens!: string[];
+  /** Accepted named Bearer credentials. Empty when Bearer auth is not configured. */
+  public authBearerTokens!: BearerToken[];
 
   /** True when any authentication method is configured. */
   @IsBoolean()
@@ -47,23 +48,10 @@ export class AppConfig {
   public shutdownDrainSeconds!: number;
 }
 
-/**
- * Parses a comma-separated token list, dropping empty entries.
- *
- * @param raw - Raw environment value.
- * @returns Trimmed, non-empty tokens.
- */
-function parseTokens(raw: string | undefined): string[] {
-  return (raw ?? '')
-    .split(',')
-    .map(token => token.trim())
-    .filter(token => token.length > 0);
-}
-
 export default registerAs('app', (): AppConfig => {
   const authBasicUser = (process.env.AUTH_BASIC_USER ?? '').trim();
   const authBasicPass = (process.env.AUTH_BASIC_PASS ?? '').trim();
-  const authBearerTokens = parseTokens(process.env.AUTH_BEARER_TOKENS);
+  const authBearerTokens = parseBearerTokens(process.env.AUTH_BEARER_TOKENS);
 
   const config = plainToClass(AppConfig, {
     port: parseInt(process.env.LISTEN_PORT ?? '8080', 10),

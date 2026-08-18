@@ -1,7 +1,9 @@
 import { Test } from '@nestjs/testing';
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../../src/app.module.js';
+import type { AppConfig } from '../../src/config/app.config.js';
 import { buildApiPrefix } from '../../src/common/http/api-prefix.js';
 import { registerAuthHook } from '../../src/common/auth/auth.hook.js';
 
@@ -32,13 +34,14 @@ export async function createTestApp(): Promise<NestFastifyApplication> {
   const globalPrefix = buildApiPrefix(process.env.BASE_PATH);
   app.setGlobalPrefix(globalPrefix);
 
+  // Credentials come from the config, exactly as in main.ts. Re-parsing the environment here
+  // would let a parsing change pass the whole suite and still break in production.
+  const config = app.get(ConfigService).getOrThrow<AppConfig>('app');
+
   registerAuthHook(app.getHttpAdapter().getInstance(), {
-    basicUser: (process.env.AUTH_BASIC_USER ?? '').trim(),
-    basicPass: (process.env.AUTH_BASIC_PASS ?? '').trim(),
-    bearerTokens: (process.env.AUTH_BEARER_TOKENS ?? '')
-      .split(',')
-      .map(token => token.trim())
-      .filter(token => token.length > 0),
+    basicUser: config.authBasicUser,
+    basicPass: config.authBasicPass,
+    bearerTokens: config.authBearerTokens,
     publicPaths: [`${globalPrefix}/health`],
   });
 

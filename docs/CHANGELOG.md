@@ -5,6 +5,16 @@ and versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking (configuration).** `AUTH_BEARER_TOKENS` entries are now `name:token` pairs instead of
+  bare tokens. The name identifies the calling service in logs (`req.client`) and lets a single
+  caller be revoked without rotating everyone else's credential. A bare token fails at startup with
+  the offending entry's position — deliberately loud, because a caller nobody can attribute is a
+  gap in the audit trail. Update every deployment's `AUTH_BEARER_TOKENS` before rolling this out.
+- Credentials are compared as SHA-256 digests through `timingSafeEqual` instead of string equality,
+  so neither a secret's value nor its length leaks through response timing.
+
 ### Added
 
 - Split CI and release workflows: pull requests run checks, e2e, and a no-push image build;

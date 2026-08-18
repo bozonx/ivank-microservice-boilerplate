@@ -31,7 +31,9 @@ describe('Authentication (e2e)', () => {
 
   describe('with Bearer tokens configured', () => {
     beforeEach(async () => {
-      restoreEnv = withEnvVars({ AUTH_BEARER_TOKENS: 'token-one, token-two' });
+      restoreEnv = withEnvVars({
+        AUTH_BEARER_TOKENS: 'svc-one:token-one, svc-two:token-two',
+      });
       app = await createTestApp();
     });
 
@@ -67,6 +69,33 @@ describe('Authentication (e2e)', () => {
     it('does not let a trailing slash bypass the guard', async () => {
       const response = await app.inject({ method: 'GET', url: '/api/v1/anything/' });
       expect(response.statusCode).toBe(401);
+    });
+
+    it('does not let a query string bypass the guard', async () => {
+      const response = await app.inject({ method: 'GET', url: '/api/v1/anything?public=1' });
+      expect(response.statusCode).toBe(401);
+    });
+
+    it('guards routes outside the api prefix too', async () => {
+      const response = await app.inject({ method: 'GET', url: '/metrics' });
+      expect(response.statusCode).toBe(401);
+    });
+
+    it('rejects a token whose name is right but secret is wrong', async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/anything',
+        headers: { authorization: 'Bearer svc-one:token-one' },
+      });
+      // The name is configuration, not a credential: only the secret half authenticates.
+      expect(response.statusCode).toBe(401);
+    });
+  });
+
+  describe('with a malformed bearer configuration', () => {
+    it('refuses to start when a token entry has no caller name', async () => {
+      restoreEnv = withEnvVars({ AUTH_BEARER_TOKENS: 'nameless-token' });
+      await expect(createTestApp()).rejects.toThrow('AUTH_BEARER_TOKENS entry #1');
     });
   });
 

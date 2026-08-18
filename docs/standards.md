@@ -102,6 +102,14 @@ response, and (later) OpenTelemetry resource attributes.
   unobservable from outside and defeats the purpose.
 - Authentication is opt-in through env. If neither Basic nor Bearer credentials are configured the
   service is public; if any are configured, every route except health requires authentication.
+  The rule is deny-by-default: the hook holds a list of public paths, not a list of protected
+  prefixes, so a route added later is closed until someone opens it deliberately.
+- Bearer credentials are named: `AUTH_BEARER_TOKENS=name:token,name:token`. The name identifies
+  the calling service in logs (`req.client`) and lets one caller be revoked without rotating
+  everyone else's token. An entry without a name fails at startup — an unattributable caller is
+  a gap in the audit trail, not a convenience.
+- Credentials are compared as SHA-256 digests through `timingSafeEqual`. Digests are fixed length,
+  so neither the value nor the length of a secret leaks through timing.
 
 ## 6. Logging
 

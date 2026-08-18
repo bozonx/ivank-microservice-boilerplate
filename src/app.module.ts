@@ -68,6 +68,12 @@ import { buildApiPrefix } from './common/http/api-prefix.js';
                 stack: err.stack,
               }),
             },
+            // Emitted through customProps rather than the `req` serializer: Pino serializes the
+            // request bindings when the child logger is created, which can be before the auth
+            // hook has identified the caller. customProps runs when the line is written.
+            customProps: req => ({
+              client: (req as unknown as { authClient?: string }).authClient,
+            }),
             redact: {
               paths: [
                 'req.headers.authorization',
