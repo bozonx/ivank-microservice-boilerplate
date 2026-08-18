@@ -1,162 +1,122 @@
+// Fleet-wide ESLint configuration. This file is identical in every service; change it in
+// `ivank-microservice-boilerplate` and roll it out, do not fork it per repository.
 import eslint from '@eslint/js';
-import tseslint from '@typescript-eslint/eslint-plugin';
-import tsparser from '@typescript-eslint/parser';
-import prettier from 'eslint-plugin-prettier';
-import prettierConfig from 'eslint-config-prettier';
+import globals from 'globals';
 import jest from 'eslint-plugin-jest';
+import prettierConfig from 'eslint-config-prettier';
+import tseslint from 'typescript-eslint';
 
-export default [
-    // Ignore patterns
-    {
-        ignores: ['dist/', 'node_modules/', 'coverage/', '.eslintrc.cjs'],
+export default tseslint.config(
+  {
+    ignores: ['dist/', 'node_modules/', 'coverage/'],
+  },
+
+  eslint.configs.recommended,
+  ...tseslint.configs.recommended,
+
+  {
+    files: ['**/*.ts'],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        // projectService picks the nearest tsconfig for every file, so `src/` and `test/`
+        // are both type-aware without a separate lint-only tsconfig to keep in sync.
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+      globals: {
+        ...globals.node,
+        ...globals.es2022,
+      },
     },
-
-    // Base ESLint recommended rules
-    eslint.configs.recommended,
-
-    // TypeScript files configuration
-    {
-        files: ['**/*.ts'],
-        languageOptions: {
-            parser: tsparser,
-            parserOptions: {
-                project: ['./tsconfig.eslint.json', './tsconfig.json'],
-                tsconfigRootDir: import.meta.dirname,
-                sourceType: 'module',
-                ecmaVersion: 2022,
-            },
-            globals: {
-                // Node.js globals
-                process: 'readonly',
-                __dirname: 'readonly',
-                __filename: 'readonly',
-                Buffer: 'readonly',
-                console: 'readonly',
-                module: 'readonly',
-                require: 'readonly',
-                exports: 'readonly',
-                global: 'readonly',
-                setTimeout: 'readonly',
-                clearTimeout: 'readonly',
-                setInterval: 'readonly',
-                clearInterval: 'readonly',
-                setImmediate: 'readonly',
-                clearImmediate: 'readonly',
-                URL: 'readonly',
-                fetch: 'readonly',
-                // ES2022 globals
-                Promise: 'readonly',
-                Symbol: 'readonly',
-                WeakMap: 'readonly',
-                WeakSet: 'readonly',
-                Map: 'readonly',
-                Set: 'readonly',
-                Proxy: 'readonly',
-                Reflect: 'readonly',
-            },
-        },
-        plugins: {
-            '@typescript-eslint': tseslint,
-            prettier,
-            jest,
-        },
-        rules: {
-            // Prettier integration
-            'prettier/prettier': 'error',
-
-            // TypeScript specific rules
-            '@typescript-eslint/explicit-function-return-type': 'off',
-            '@typescript-eslint/explicit-module-boundary-types': 'off',
-            '@typescript-eslint/no-explicit-any': 'warn',
-            // The base rule does not understand constructor parameter properties or
-            // type-only signatures, so it must be off for the TypeScript one to work.
-            'no-unused-vars': 'off',
-            '@typescript-eslint/no-unused-vars': [
-                'error',
-                {
-                    argsIgnorePattern: '^_',
-                    varsIgnorePattern: '^_',
-                    caughtErrorsIgnorePattern: '^_',
-                },
-            ],
-            '@typescript-eslint/prefer-nullish-coalescing': 'error',
-            '@typescript-eslint/prefer-optional-chain': 'error',
-            '@typescript-eslint/no-floating-promises': 'error',
-            '@typescript-eslint/await-thenable': 'error',
-            '@typescript-eslint/no-misused-promises': 'error',
-            '@typescript-eslint/require-await': 'error',
-            '@typescript-eslint/no-unnecessary-type-assertion': 'error',
-            '@typescript-eslint/prefer-as-const': 'error',
-            '@typescript-eslint/no-non-null-assertion': 'warn',
-            '@typescript-eslint/consistent-type-imports': [
-                'error',
-                { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
-            ],
-            '@typescript-eslint/consistent-type-exports': 'error',
-            '@typescript-eslint/no-import-type-side-effects': 'error',
-
-            // NestJS specific rules
-            '@typescript-eslint/explicit-member-accessibility': [
-                'error',
-                {
-                    accessibility: 'explicit',
-                    overrides: {
-                        accessors: 'explicit',
-                        constructors: 'no-public',
-                        methods: 'explicit',
-                        properties: 'explicit',
-                        parameterProperties: 'explicit',
-                    },
-                },
-            ],
-
-            // Jest specific rules
-            'jest/no-disabled-tests': 'warn',
-            'jest/no-focused-tests': 'error',
-            'jest/no-identical-title': 'error',
-            'jest/prefer-to-have-length': 'warn',
-            'jest/valid-expect': 'error',
-            'jest/expect-expect': 'error',
-            'jest/no-done-callback': 'error',
-            'jest/valid-describe-callback': 'error',
-
-            // General rules
-            'no-console': 'warn',
-            'no-debugger': 'error',
-            'prefer-const': 'error',
-            'no-var': 'error',
-        },
+    plugins: {
+      '@typescript-eslint': tseslint.plugin,
+      jest,
     },
+    rules: {
+      // The base rule does not understand constructor parameter properties or type-only
+      // signatures, so it must be off for the TypeScript one to work.
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-non-null-assertion': 'error',
 
-    // Test files override
-    {
-        files: ['**/*.spec.ts', '**/*.test.ts', 'test/**/*.ts'],
-        languageOptions: {
-            globals: {
-                // Jest globals
-                jest: 'readonly',
-                describe: 'readonly',
-                it: 'readonly',
-                test: 'readonly',
-                expect: 'readonly',
-                beforeAll: 'readonly',
-                beforeEach: 'readonly',
-                afterAll: 'readonly',
-                afterEach: 'readonly',
-            },
+      // Type-aware rules. These are what catch the mistakes a reviewer misses.
+      '@typescript-eslint/no-deprecated': 'error',
+      '@typescript-eslint/prefer-nullish-coalescing': 'error',
+      '@typescript-eslint/prefer-optional-chain': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/require-await': 'error',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+      '@typescript-eslint/no-unnecessary-condition': 'error',
+      '@typescript-eslint/prefer-as-const': 'error',
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
+      ],
+      '@typescript-eslint/consistent-type-exports': 'error',
+      '@typescript-eslint/no-import-type-side-effects': 'error',
+
+      // NestJS: accessibility is part of the public contract of a provider.
+      '@typescript-eslint/explicit-member-accessibility': [
+        'error',
+        {
+          accessibility: 'explicit',
+          overrides: {
+            accessors: 'explicit',
+            constructors: 'no-public',
+            methods: 'explicit',
+            properties: 'explicit',
+            parameterProperties: 'explicit',
+          },
         },
-        rules: {
-            '@typescript-eslint/no-unsafe-assignment': 'off',
-            '@typescript-eslint/no-unsafe-member-access': 'off',
-            '@typescript-eslint/no-unsafe-call': 'off',
-            '@typescript-eslint/no-unsafe-argument': 'off',
-            '@typescript-eslint/no-unsafe-return': 'off',
-            '@typescript-eslint/no-explicit-any': 'off',
-            '@typescript-eslint/explicit-member-accessibility': 'off',
-            'no-console': 'off',
-        },
+      ],
+
+      'no-console': 'error',
+      'no-debugger': 'error',
+      'prefer-const': 'error',
+      'no-var': 'error',
+      eqeqeq: ['error', 'smart'],
     },
+  },
 
-    // Prettier config (must be last to override other configs)
-    prettierConfig,
-];
+  {
+    files: ['test/**/*.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
+    },
+    rules: {
+      'jest/no-disabled-tests': 'warn',
+      'jest/no-focused-tests': 'error',
+      'jest/no-identical-title': 'error',
+      'jest/prefer-to-have-length': 'warn',
+      'jest/valid-expect': 'error',
+      'jest/expect-expect': 'error',
+      'jest/no-done-callback': 'error',
+      'jest/valid-describe-callback': 'error',
+
+      // Tests reach into internals and build partial doubles on purpose.
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+      '@typescript-eslint/explicit-member-accessibility': 'off',
+      'no-console': 'off',
+    },
+  },
+
+  // Must stay last: switches off every rule Prettier owns.
+  prettierConfig,
+);

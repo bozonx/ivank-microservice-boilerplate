@@ -1,66 +1,50 @@
 import 'reflect-metadata';
+import './config/env.js';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { NestFactory } from '@nestjs/core';
-import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
-import { ValidationPipe } from '@nestjs/common';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
+import { configureApp, createFastifyAdapter } from './configure-app.js';
 import type { AppConfig } from './config/app.config.js';
+import type { AuthConfig } from './config/auth.config.js';
 import { SERVICE_NAME, SERVICE_VERSION } from './config/service-info.js';
 import { buildApiPrefix } from './common/http/api-prefix.js';
-import { registerAuthHook } from './common/auth/auth.hook.js';
 import { HealthService } from './modules/health/health.service.js';
 
-async function bootstrap() {
+/** Exit status used when shutdown does not complete cleanly. */
+const EXIT_SHUTDOWN_FAILED = 1;
+
+async function bootstrap(): Promise<void> {
   // Buffer logs so nothing emitted during startup is lost before Pino is attached.
-  const app = await NestFactory.create<NestFastifyApplication>(
-    AppModule,
-    new FastifyAdapter({
-      logger: false, // Pino handles logging.
-    }),
-    {
-      bufferLogs: true,
-    },
-  );
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, createFastifyAdapter(), {
+    bufferLogs: true,
+  });
 
   app.useLogger(app.get(Logger));
 
-  const configService = app.get(ConfigService);
   const logger = app.get(Logger);
-  const config = configService.get<AppConfig>('app');
-  if (!config) {
-    throw new Error('App configuration is missing; check config registration in AppModule');
-  }
+  const configService = app.get(ConfigService);
+  const appConfig = configService.getOrThrow<AppConfig>('app');
+  const authConfig = configService.getOrThrow<AuthConfig>('auth');
 
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
-  );
-
-  const globalPrefix = buildApiPrefix(config.basePath);
-  app.setGlobalPrefix(globalPrefix);
-
-  registerAuthHook(app.getHttpAdapter().getInstance(), {
-    basicUser: config.authBasicUser,
-    basicPass: config.authBasicPass,
-    bearerTokens: config.authBearerTokens,
-    // Health must stay reachable for probes even when the service is otherwise closed.
-    publicPaths: [`${globalPrefix}/health`],
-  });
+  configureApp(app);
 
   // Deliberately not app.enableShutdownHooks(): Nest's handler closes the HTTP server
   // immediately, so the `shutting_down` health response would never be observable from
   // outside. Shutdown is driven here instead.
-  registerShutdown(app, config.shutdownDrainSeconds, logger);
+  registerShutdown(app, appConfig, logger);
 
-  await app.listen(config.port, config.host);
+  await app.listen(appConfig.port, appConfig.host);
 
+  const globalPrefix = buildApiPrefix(appConfig.basePath);
   logger.log(
-    `${SERVICE_NAME} ${SERVICE_VERSION} listening on http://${config.host}:${config.port}/${globalPrefix}`,
+    `${SERVICE_NAME} ${SERVICE_VERSION} listening on http://${appConfig.host}:${appConfig.port}/${globalPrefix}`,
     'Bootstrap',
   );
   logger.log(
-    `environment=${config.nodeEnv} logLevel=${config.logLevel} auth=${config.authEnabled ? 'enabled' : 'disabled'}`,
+    `environment=${appConfig.nodeEnv} logLevel=${appConfig.logLevel} auth=${authConfig.enabled ? 'enabled' : 'disabled'}`,
     'Bootstrap',
   );
 }
@@ -73,11 +57,16 @@ async function bootstrap() {
  * any request is refused. Only after the drain window does the app close, which runs Nest's
  * shutdown hooks and finishes in-flight work.
  *
+ * Shutdown always ends in an explicit exit status. A close that hangs — a stuck queue, a
+ * socket that never finishes — exits non-zero after `shutdownForceExitSeconds` instead of
+ * waiting for the orchestrator's SIGKILL, which would report the container as stopped
+ * cleanly and hide the defect.
+ *
  * @param app - Running application.
- * @param drainSeconds - Seconds to keep serving while reporting `shutting_down`.
+ * @param config - Validated app configuration holding both shutdown windows.
  * @param logger - Logger for shutdown progress.
  */
-function registerShutdown(app: NestFastifyApplication, drainSeconds: number, logger: Logger): void {
+function registerShutdown(app: NestFastifyApplication, config: AppConfig, logger: Logger): void {
   let shuttingDown = false;
 
   const shutdown = async (signal: string): Promise<void> => {
@@ -87,16 +76,36 @@ function registerShutdown(app: NestFastifyApplication, drainSeconds: number, log
     }
     shuttingDown = true;
 
-    logger.log(`${signal} received, draining for ${drainSeconds}s`, 'Shutdown');
+    logger.log(`${signal} received, draining for ${config.shutdownDrainSeconds}s`, 'Shutdown');
     app.get(HealthService).startDraining();
 
-    if (drainSeconds > 0) {
-      await sleep(drainSeconds * 1000);
+    if (config.shutdownDrainSeconds > 0) {
+      await sleep(config.shutdownDrainSeconds * 1000);
     }
 
-    await app.close();
-    logger.log('Shutdown complete', 'Shutdown');
-    process.exit(0);
+    const forceExit = setTimeout(() => {
+      logger.error(
+        `Shutdown did not complete within ${config.shutdownForceExitSeconds}s, exiting with a failure status`,
+        undefined,
+        'Shutdown',
+      );
+      process.exit(EXIT_SHUTDOWN_FAILED);
+    }, config.shutdownForceExitSeconds * 1000);
+
+    try {
+      await app.close();
+      clearTimeout(forceExit);
+      logger.log('Shutdown complete', 'Shutdown');
+      process.exit(0);
+    } catch (err) {
+      clearTimeout(forceExit);
+      logger.error(
+        'Error during shutdown',
+        err instanceof Error ? err.stack : String(err),
+        'Shutdown',
+      );
+      process.exit(EXIT_SHUTDOWN_FAILED);
+    }
   };
 
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
@@ -106,4 +115,21 @@ function registerShutdown(app: NestFastifyApplication, drainSeconds: number, log
   }
 }
 
-void bootstrap();
+// Nothing is logged through Pino here: these fire when the container is already unreliable,
+// possibly before or after the logger exists.
+/* eslint-disable no-console */
+process.on('unhandledRejection', reason => {
+  console.error('Unhandled rejection:', reason);
+  process.exit(1);
+});
+
+process.on('uncaughtException', error => {
+  console.error('Uncaught exception:', error);
+  process.exit(1);
+});
+
+bootstrap().catch(err => {
+  console.error('Fatal bootstrap error:', err);
+  process.exit(1);
+});
+/* eslint-enable no-console */

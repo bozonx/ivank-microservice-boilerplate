@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals';
 import { buildApiPrefix, normalizeBasePath } from '../../src/common/http/api-prefix.js';
 
 describe('buildApiPrefix (unit)', () => {

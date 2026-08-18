@@ -21,24 +21,33 @@ pnpm dev
 
 ## Scripts
 
-| Script | What it does |
-| --- | --- |
-| `pnpm dev` | Watch mode |
-| `pnpm dev:debug` | Watch mode with the inspector attached |
-| `pnpm build` | Compile to `dist/` |
-| `pnpm start` | Run the compiled app; takes no environment decisions of its own |
-| `pnpm typecheck` | `tsc --noEmit` |
-| `pnpm lint` / `pnpm lint:fix` | Lint; `lint` never writes files, so CI can rely on it |
-| `pnpm format` / `pnpm format:check` | Prettier write / verify |
-| `pnpm test` | Both projects |
-| `pnpm test:unit` / `pnpm test:e2e` | One project |
-| `pnpm test:watch` / `pnpm test:cov` | Watch / coverage |
-| `pnpm test:debug` | Inspector, serial, with open-handle detection |
-| `pnpm check` | typecheck + lint + format check + unit tests — exactly what CI runs |
-| `pnpm docker:*` | Compose wrappers |
-| `pnpm clean` | Remove build artifacts |
+| Script                              | What it does                                                     |
+| ----------------------------------- | ---------------------------------------------------------------- |
+| `pnpm dev`                          | Watch mode                                                       |
+| `pnpm dev:debug`                    | Watch mode with the inspector attached                           |
+| `pnpm build`                        | Compile to `dist/`                                               |
+| `pnpm start`                        | Run the compiled app; takes no environment decisions of its own  |
+| `pnpm typecheck`                    | `tsc --noEmit` over `src/` **and** `test/`                       |
+| `pnpm lint` / `pnpm lint:fix`       | Lint; `lint` never writes files, so CI can rely on it            |
+| `pnpm format` / `pnpm format:check` | Prettier write / verify                                          |
+| `pnpm test`                         | Both projects                                                    |
+| `pnpm test:unit` / `pnpm test:e2e`  | One project                                                      |
+| `pnpm test:watch` / `pnpm test:cov` | Watch / coverage                                                 |
+| `pnpm test:debug`                   | Inspector, serial, with open-handle detection                    |
+| `pnpm check`                        | typecheck + lint + format check — static analysis only           |
+| `pnpm validate`                     | `check` + unit tests — run this before considering a change done |
+| `pnpm validate:all`                 | `check` + coverage run of both projects + build — what CI runs   |
+| `pnpm check:fleet`                  | Reports drift in fleet-shared files against the boilerplate      |
+| `pnpm docker:*`                     | Compose wrappers                                                 |
+| `pnpm clean`                        | Remove build artifacts                                           |
 
-Run `pnpm check` before considering a change finished.
+Run `pnpm validate` before considering a change finished, and `pnpm validate:all` before
+opening a pull request — CI runs exactly the latter.
+
+`pnpm check:fleet` compares the files that must be identical in every service against the
+boilerplate checkout it finds next to this one (or at `FLEET_BOILERPLATE_PATH`). It skips
+itself when there is no checkout to compare against, so it is a local guard rather than a CI
+gate.
 
 ## Tests
 
@@ -46,9 +55,13 @@ Jest is split into two projects. Unit tests live in `test/unit/` and block outbo
 calls through nock. E2E tests live in `test/e2e/` and drive the real application through
 `app.inject`, with no socket involved.
 
-E2E tests build the app through `test/e2e/test-app.factory.ts`, which mirrors the wiring in
-`src/main.ts`. Keep the two in step: wiring applied only in `main.ts` would pass every test and
-still break in production.
+E2E tests build the app through `test/e2e/test-app.factory.ts`. Both it and `src/main.ts` call
+`configureApp()`, so there is one place where the application is assembled: wiring applied only
+in `main.ts` would pass every test and still break in production.
+
+Tests import `describe`, `it`, `expect` and friends from `@jest/globals`; injected globals are
+switched off. That is what gives the matchers real types — an injected `expect` is `any`, and
+`expect(mock).toHaveBeenCalledWith(200)` on a mock that takes no arguments type-checks fine.
 
 Jest needs `NODE_OPTIONS=--experimental-vm-modules` for ESM. It is set on the test scripts —
 pnpm, unlike npm, does not apply `node-options` from `.npmrc` to script execution.
@@ -61,8 +74,9 @@ src/
     auth/        optional Basic and Bearer authentication hook
     filters/     global exception filter
     http/        API prefix helper
-    redis/       key-prefix helper for services that add Redis
-  config/        configuration and service identity
+    logger/      pino configuration factory
+    utils/       validation-error formatting
+  config/        configuration, validation helper and service identity
   modules/
     health/      health endpoint and drain state
 test/

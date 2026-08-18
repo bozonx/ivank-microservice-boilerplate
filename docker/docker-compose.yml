@@ -16,7 +16,10 @@ services:
       - '${LISTEN_PORT:-8080}:8080'
     # Paths are relative to this file, hence ../.env rather than .env.
     env_file:
-      - ../.env
+      # required: false — in an orchestrator the environment comes from the platform and
+      # there is no file to read.
+      - path: ../.env
+        required: false
     environment:
       TZ: ${TZ:-UTC}
       LOG_LEVEL: ${LOG_LEVEL:-warn}

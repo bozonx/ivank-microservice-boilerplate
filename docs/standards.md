@@ -6,14 +6,14 @@ listed in the "Allowed deviations" section at the bottom of this file — otherw
 
 Services covered:
 
-| Service | Stack |
-| --- | --- |
-| `ivank-microservice-boilerplate` | NestJS + Fastify (reference implementation) |
-| `image-processing-microservice` | NestJS + Fastify + Sharp |
-| `page-scraper-microservice` | NestJS + Fastify + Playwright |
-| `social-media-posting-microservice` | NestJS + Fastify |
-| `stt-gateway-microservice` | Hono (Node.js + Cloudflare Workers) |
-| `translate-gateway-microservice` | Hono (Node.js + Cloudflare Workers) |
+| Service                             | Stack                                       |
+| ----------------------------------- | ------------------------------------------- |
+| `ivank-microservice-boilerplate`    | NestJS + Fastify (reference implementation) |
+| `image-processing-microservice`     | NestJS + Fastify + Sharp                    |
+| `page-scraper-microservice`         | NestJS + Fastify + Playwright               |
+| `social-media-posting-microservice` | NestJS + Fastify                            |
+| `stt-gateway-microservice`          | Hono (Node.js + Cloudflare Workers)         |
+| `translate-gateway-microservice`    | Hono (Node.js + Cloudflare Workers)         |
 
 ## 1. Runtime and package manager
 
@@ -28,24 +28,36 @@ Services covered:
 Every `package.json` exposes the same script names. Implementations differ (nest build vs tsc,
 jest vs vitest); names do not.
 
-| Script | Purpose |
-| --- | --- |
-| `dev` | Watch mode for local development |
-| `dev:debug` | Watch mode with the inspector attached |
-| `build` | Compile to `dist/` |
-| `start` | Run the compiled app. Takes no environment decisions — env comes from outside |
-| `typecheck` | `tsc --noEmit` |
-| `lint` / `lint:fix` | Lint without / with `--fix`. `lint` must never write files: CI depends on it |
-| `format` / `format:check` | Prettier write / verify |
-| `test` / `test:unit` / `test:e2e` / `test:watch` / `test:cov` / `test:debug` | Tests |
-| `check` | `typecheck && lint && format:check && test:unit` — exactly what CI runs |
-| `docker:build` / `docker:up` / `docker:down` / `docker:logs` | Compose wrappers |
-| `clean` | Remove build artifacts |
+| Script                                                                       | Purpose                                                                       |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `dev`                                                                        | Watch mode for local development                                              |
+| `dev:debug`                                                                  | Watch mode with the inspector attached                                        |
+| `build`                                                                      | Compile to `dist/`                                                            |
+| `start`                                                                      | Run the compiled app. Takes no environment decisions — env comes from outside |
+| `typecheck`                                                                  | `tsc -p tsconfig.spec.json --noEmit` — covers `src/` **and** `test/`          |
+| `lint` / `lint:fix`                                                          | Lint without / with `--fix`. `lint` must never write files: CI depends on it  |
+| `format` / `format:check`                                                    | Prettier write / verify, over the whole repository                            |
+| `test` / `test:unit` / `test:e2e` / `test:watch` / `test:cov` / `test:debug` | Tests                                                                         |
+| `check`                                                                      | `typecheck && lint && format:check` — static analysis, no test run            |
+| `check:fleet`                                                                | Reports drift in fleet-shared files against the boilerplate                   |
+| `validate`                                                                   | `check && test:unit` — what a developer runs before calling work finished     |
+| `validate:all`                                                               | `check && test:cov && build` — exactly what CI runs                           |
+| `docker:build` / `docker:up` / `docker:down` / `docker:logs`                 | Compose wrappers                                                              |
+| `clean`                                                                      | Remove build artifacts                                                        |
 
 Services running on Cloudflare Workers additionally expose `dev:worker` and `deploy:worker`.
 
 Rules:
 
+- The three levels are not interchangeable. `check` is static analysis and must stay fast enough
+  to run on every save. `validate` adds unit tests and is the bar for "finished". `validate:all`
+  adds the e2e suite, coverage thresholds and a build, and is what CI runs — so CI never runs
+  something a developer has no single command for.
+- `typecheck` covers the tests too. Pointing it at a config that includes only `src/` is how a
+  repository ends up with a green pipeline and type errors in its own test suite.
+- `lint` runs with `--max-warnings=0`. A warning nothing fails on is a warning that accumulates.
+- `format` and `format:check` run over the whole repository, not over `{src,test}/**/*.ts`.
+  Configuration files, workflows and Markdown are the ones that quietly drift out of style.
 - No `NODE_ENV` baked into `start`. Production environment is set by the image and the orchestrator.
 - Runner flags that Jest needs for ESM (`NODE_OPTIONS=--experimental-vm-modules`) sit on the
   scripts that start Jest. They cannot move to `.npmrc`: pnpm, unlike npm, does not apply
@@ -72,7 +84,15 @@ BASE_PATH      optional path prefix, empty by default
 LOG_LEVEL      trace | debug | info | warn | error | fatal | silent
 TZ             application timezone, default UTC
 SERVICE_NAME   overrides the built-in service name, optional
+SERVICE_VERSION  overrides the version reported in logs and health, set by the image
+SHUTDOWN_DRAIN_SECONDS       drain window before closing
+SHUTDOWN_FORCE_EXIT_SECONDS  cap on the close itself, after which the process exits non-zero
 ```
+
+Configuration is assembled per namespace with `registerAs` and validated through the shared
+`validateConfig()` helper, so every namespace fails the same way and names the offending
+property. Namespaces are split by subject — `app`, `auth`, and whatever the service itself
+needs — rather than collected into one class that grows with the service.
 
 ## 4. Service identity
 
@@ -96,10 +116,19 @@ response, and (later) OpenTelemetry resource attributes.
 
   During graceful shutdown it returns `503` with `"status": "shutting_down"` so the load balancer
   drains the instance before the process exits.
+
 - Shutdown is driven explicitly, not by `enableShutdownHooks()` alone: on SIGTERM the service
   marks itself draining, keeps serving for `SHUTDOWN_DRAIN_SECONDS`, and only then closes. Nest's
   built-in handler closes the server immediately, which makes the `shutting_down` response
   unobservable from outside and defeats the purpose.
+- Shutdown always ends in an explicit exit status: `0` after a clean close, `1` when the close
+  throws, and `1` after `SHUTDOWN_FORCE_EXIT_SECONDS` when it never returns at all. A hang that
+  is left to the orchestrator's SIGKILL is reported as a clean stop, so the defect stays
+  invisible. `SHUTDOWN_DRAIN_SECONDS + SHUTDOWN_FORCE_EXIT_SECONDS` must stay below the compose
+  `stop_grace_period`.
+- The HTTP adapter is created with `forceCloseConnections: true`. Without it a keep-alive
+  connection keeps `close()` pending, which is the most common way a graceful shutdown turns
+  into the hang above.
 - Authentication is opt-in through env. If neither Basic nor Bearer credentials are configured the
   service is public; if any are configured, every route except health requires authentication.
   The rule is deny-by-default: the hook holds a list of public paths, not a list of protected
@@ -188,9 +217,30 @@ and the fleet has no case that justifies that machinery.
 
 ## 12. Tooling configuration
 
-- ESLint flat config in `eslint.config.js`. The legacy `.eslintrc.*` format is not used.
-- Prettier configuration in `.prettierrc.yml`, so options can carry comments.
+- ESLint flat config in `eslint.config.js`, built with the `typescript-eslint` meta package and
+  `projectService: true`. The legacy `.eslintrc.*` format is not used, and neither is a lint-only
+  `tsconfig.eslint.json`: `projectService` resolves the nearest config per file.
+- Prettier is a separate step, never an ESLint rule. `eslint-plugin-prettier` reports formatting
+  as lint errors, which makes one problem show up in two tools and slows both down.
+- Prettier configuration in `.prettierrc.yml`, so options can carry comments, with
+  `.prettierignore` covering generated files.
 - `.editorconfig` present in every repository.
+- Jest runs with `injectGlobals: false`; tests import from `@jest/globals` so matchers are typed.
+- `coverageThreshold` is set in every service. The number is a floor that only moves up.
+
+### Fleet-shared files
+
+These files are byte-identical in every service, and `pnpm check:fleet` reports it when they are
+not: `.editorconfig`, `.npmrc`, `.prettierrc.yml`, `.prettierignore`, `eslint.config.js`,
+`renovate.json`, `scripts/check-fleet.mjs`, the three root `tsconfig*.json` files, `test/tsconfig.json`,
+`test/e2e/env-helper.ts`, `src/common/**` (auth hook, exception filter, API prefix, logger
+factory, validation errors), `src/config/{auth.config,env,validate-config}.ts`,
+`src/modules/health/health.service.ts`, the three workflow files, and the "Common rules" section
+of `AGENTS.md`.
+
+Service-specific by design, and therefore not on that list: `src/configure-app.ts` (each service
+registers its own plugins and routes), `src/config/app.config.ts` (service-specific variables),
+`jest.config.js` (coverage thresholds differ), `docker/*`, `.dockerignore` and `.env.example`.
 
 ## Allowed deviations
 
@@ -201,6 +251,9 @@ Deviations that are inherent to a service's platform, and are therefore not defe
   scripts exist only here.
 - `translate-gateway-microservice`: tests run on Vitest rather than Jest. Script names are
   unchanged; only the runner differs.
+- `image-processing-microservice`: the health response carries an extra `queue` object
+  (`size`, `pending`). Queue saturation is the failure mode that matters for this service, and a
+  probe that cannot see it is not much of a probe. The four standard fields are unchanged.
 - `page-scraper-microservice`: the Docker image carries Chromium and its font packages, and the
   compose file sets `shm_size`.
 - `social-media-posting-microservice`: `config.yaml` is the source of truth for platform

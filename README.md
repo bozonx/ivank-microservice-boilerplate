@@ -54,18 +54,18 @@ See [`docs/deploy.md`](docs/deploy.md) for the production notes.
 for local development. In containers the environment comes from compose or the orchestrator —
 no env file is read there.
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `NODE_ENV` | `production` | `development`, `production` or `test` |
-| `LISTEN_HOST` | `0.0.0.0` | Bind address |
-| `LISTEN_PORT` | `8080` | Bind port |
-| `BASE_PATH` | empty | Optional path prefix; API moves to `{BASE_PATH}/api/v1` |
-| `LOG_LEVEL` | `warn` | Pino level |
-| `TZ` | `UTC` | Application timezone |
-| `SERVICE_NAME` | package name | Overrides the name in logs and health |
-| `SHUTDOWN_DRAIN_SECONDS` | `5` | Seconds to keep serving after SIGTERM while health reports `shutting_down` |
-| `AUTH_BASIC_USER` / `AUTH_BASIC_PASS` | empty | Enables Basic auth when both are set |
-| `AUTH_BEARER_TOKENS` | empty | Comma-separated accepted Bearer tokens |
+| Variable                              | Default      | Purpose                                                                    |
+| ------------------------------------- | ------------ | -------------------------------------------------------------------------- |
+| `NODE_ENV`                            | `production` | `development`, `production` or `test`                                      |
+| `LISTEN_HOST`                         | `0.0.0.0`    | Bind address                                                               |
+| `LISTEN_PORT`                         | `8080`       | Bind port                                                                  |
+| `BASE_PATH`                           | empty        | Optional path prefix; API moves to `{BASE_PATH}/api/v1`                    |
+| `LOG_LEVEL`                           | `warn`       | Pino level                                                                 |
+| `TZ`                                  | `UTC`        | Application timezone                                                       |
+| `SERVICE_NAME`                        | package name | Overrides the name in logs and health                                      |
+| `SHUTDOWN_DRAIN_SECONDS`              | `5`          | Seconds to keep serving after SIGTERM while health reports `shutting_down` |
+| `AUTH_BASIC_USER` / `AUTH_BASIC_PASS` | empty        | Enables Basic auth when both are set                                       |
+| `AUTH_BEARER_TOKENS`                  | empty        | Comma-separated accepted Bearer tokens                                     |
 
 ## Authentication
 
@@ -81,9 +81,9 @@ route cannot be used to probe past it.
 
 ## Endpoints
 
-| Method | Path | Auth | Description |
-| --- | --- | --- | --- |
-| `GET` | `{BASE_PATH}/api/v1/health` | never required | Liveness, identity and drain state |
+| Method | Path                        | Auth           | Description                        |
+| ------ | --------------------------- | -------------- | ---------------------------------- |
+| `GET`  | `{BASE_PATH}/api/v1/health` | never required | Liveness, identity and drain state |
 
 Health returns `200` with `"status": "ok"` while serving and `503` with
 `"status": "shutting_down"` from the moment shutdown begins, so a load balancer stops routing to

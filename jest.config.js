@@ -1,5 +1,9 @@
-import type { Config } from 'jest';
-
+/**
+ * Jest configuration. The structure is fleet-wide; only `coverageThreshold` is tuned per
+ * service, and it only ever moves up.
+ *
+ * @type {import('jest').Config}
+ */
 const moduleFileExtensions = ['ts', 'js', 'json'];
 
 const transform = {
@@ -18,13 +22,20 @@ const moduleNameMapper = {
   '^(\\.{1,2}/.*)\\.js$': '$1',
 };
 
-const coverage = {
-  collectCoverageFrom: ['src/**/*.(t|j)s'],
-  coverageDirectory: 'coverage',
-  coveragePathIgnorePatterns: ['/node_modules/', '/dist/', '/test/', '.module.ts$', 'main.ts$'],
+const project = {
+  preset: 'ts-jest/presets/default-esm',
+  testEnvironment: 'node',
+  moduleFileExtensions,
+  rootDir: '.',
+  // Tests import what they use from '@jest/globals', which is what gives the matchers their
+  // types. Injected globals would type-check as `any` and hide argument mistakes.
+  injectGlobals: false,
+  modulePathIgnorePatterns: ['<rootDir>/dist/'],
+  transform,
+  moduleNameMapper,
 };
 
-const config: Config = {
+const config = {
   extensionsToTreatAsEsm: ['.ts'],
 
   // Half the cores locally, two in CI where runners are small.
@@ -32,33 +43,35 @@ const config: Config = {
   bail: process.env.CI ? 1 : 0,
   verbose: process.env.CI === 'true',
 
+  collectCoverageFrom: ['src/**/*.ts'],
+  coverageDirectory: 'coverage',
+  coveragePathIgnorePatterns: ['/node_modules/', '/dist/', '/test/', '.module.ts$', 'main.ts$'],
+  // A floor, not a target: it exists so a change cannot quietly delete coverage.
+  coverageThreshold: {
+    global: {
+      statements: 60,
+      branches: 55,
+      functions: 70,
+      lines: 60,
+    },
+  },
+
   projects: [
     {
+      ...project,
       displayName: 'unit',
-      preset: 'ts-jest/presets/default-esm',
-      testEnvironment: 'node',
-      moduleFileExtensions,
-      rootDir: '.',
       testMatch: ['<rootDir>/test/unit/**/*.spec.ts'],
       testPathIgnorePatterns: ['<rootDir>/test/e2e/', '<rootDir>/dist/'],
       setupFilesAfterEnv: ['<rootDir>/test/setup/unit.setup.ts'],
-      transform,
-      moduleNameMapper,
       testTimeout: 5000,
-      ...coverage,
     },
     {
+      ...project,
       displayName: 'e2e',
-      preset: 'ts-jest/presets/default-esm',
-      testEnvironment: 'node',
-      moduleFileExtensions,
-      rootDir: '.',
       testMatch: ['<rootDir>/test/e2e/**/*.e2e-spec.ts'],
+      testPathIgnorePatterns: ['<rootDir>/dist/'],
       setupFilesAfterEnv: ['<rootDir>/test/setup/e2e.setup.ts'],
-      transform,
-      moduleNameMapper,
       testTimeout: 30000,
-      ...coverage,
     },
   ],
 };

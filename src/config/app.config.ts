@@ -1,9 +1,9 @@
 import { registerAs } from '@nestjs/config';
-import { IsBoolean, IsInt, IsString, IsIn, Min, Max, validateSync } from 'class-validator';
-import { plainToClass } from 'class-transformer';
+import { IsInt, IsString, IsIn, Min, Max } from 'class-validator';
 import { normalizeBasePath } from '../common/http/api-prefix.js';
-import { parseBearerTokens, type BearerToken } from '../common/auth/auth.hook.js';
+import { validateConfig } from './validate-config.js';
 
+/** Settings that describe how the process serves HTTP and how it shuts down. */
 export class AppConfig {
   @IsInt()
   @Min(1)
@@ -19,24 +19,9 @@ export class AppConfig {
   @IsIn(['development', 'production', 'test'])
   public nodeEnv!: string;
 
-  // Allow only Pino log levels
+  /** Pino log level. */
   @IsIn(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'])
   public logLevel!: string;
-
-  /** Basic auth user. Empty when Basic auth is not configured. */
-  @IsString()
-  public authBasicUser!: string;
-
-  /** Basic auth password. Empty when Basic auth is not configured. */
-  @IsString()
-  public authBasicPass!: string;
-
-  /** Accepted named Bearer credentials. Empty when Bearer auth is not configured. */
-  public authBearerTokens!: BearerToken[];
-
-  /** True when any authentication method is configured. */
-  @IsBoolean()
-  public authEnabled!: boolean;
 
   /**
    * Seconds to keep serving after SIGTERM while health already reports `shutting_down`.
@@ -46,41 +31,32 @@ export class AppConfig {
   @Min(0)
   @Max(300)
   public shutdownDrainSeconds!: number;
+
+  /**
+   * Seconds to wait for a clean close before giving up and exiting with a failure status.
+   *
+   * A close that never resolves would otherwise keep the process alive until the orchestrator
+   * sends SIGKILL, which reports success and hides the hang. Must stay below the compose
+   * `stop_grace_period` minus `shutdownDrainSeconds`.
+   */
+  @IsInt()
+  @Min(1)
+  @Max(300)
+  public shutdownForceExitSeconds!: number;
 }
 
-export default registerAs('app', (): AppConfig => {
-  const authBasicUser = (process.env.AUTH_BASIC_USER ?? '').trim();
-  const authBasicPass = (process.env.AUTH_BASIC_PASS ?? '').trim();
-  const authBearerTokens = parseBearerTokens(process.env.AUTH_BEARER_TOKENS);
-
-  const config = plainToClass(AppConfig, {
-    port: parseInt(process.env.LISTEN_PORT ?? '8080', 10),
-    host: process.env.LISTEN_HOST ?? '0.0.0.0',
-    basePath: normalizeBasePath(process.env.BASE_PATH),
-    nodeEnv: process.env.NODE_ENV ?? 'production',
-    logLevel: process.env.LOG_LEVEL ?? 'warn',
-    authBasicUser,
-    authBasicPass,
-    authBearerTokens,
-    // Basic auth needs both halves; a half-configured pair is a mistake, not a setup.
-    authEnabled: (authBasicUser !== '' && authBasicPass !== '') || authBearerTokens.length > 0,
-    shutdownDrainSeconds: parseInt(process.env.SHUTDOWN_DRAIN_SECONDS ?? '5', 10),
-  });
-
-  const errors = validateSync(config, {
-    skipMissingProperties: false,
-  });
-
-  if (errors.length > 0) {
-    const errorMessages = errors.map(err => Object.values(err.constraints ?? {}).join(', '));
-    throw new Error(`App config validation error: ${errorMessages.join('; ')}`);
-  }
-
-  if ((authBasicUser === '') !== (authBasicPass === '')) {
-    throw new Error(
-      'App config validation error: AUTH_BASIC_USER and AUTH_BASIC_PASS must be set together',
-    );
-  }
-
-  return config;
-});
+export default registerAs('app', (): AppConfig =>
+  validateConfig(
+    AppConfig,
+    {
+      port: parseInt(process.env.LISTEN_PORT ?? '8080', 10),
+      host: process.env.LISTEN_HOST ?? '0.0.0.0',
+      basePath: normalizeBasePath(process.env.BASE_PATH),
+      nodeEnv: process.env.NODE_ENV ?? 'production',
+      logLevel: process.env.LOG_LEVEL ?? 'warn',
+      shutdownDrainSeconds: parseInt(process.env.SHUTDOWN_DRAIN_SECONDS ?? '5', 10),
+      shutdownForceExitSeconds: parseInt(process.env.SHUTDOWN_FORCE_EXIT_SECONDS ?? '10', 10),
+    },
+    'App',
+  ),
+);
