@@ -39,9 +39,10 @@ jest vs vitest); names do not.
 | `format` / `format:check`                                                    | Prettier write / verify, over the whole repository                            |
 | `test` / `test:unit` / `test:e2e` / `test:watch` / `test:cov` / `test:debug` | Tests                                                                         |
 | `check`                                                                      | `typecheck && lint && format:check` — static analysis, no test run            |
+| `check:deps`                                                                 | `knip --dependencies` — automated check for unused dependencies               |
 | `check:fleet`                                                                | Reports drift in fleet-shared files against the boilerplate                   |
 | `validate`                                                                   | `check && test:unit` — what a developer runs before calling work finished     |
-| `validate:all`                                                               | `check && test:cov && build` — exactly what CI runs                           |
+| `validate:all`                                                               | `check && check:deps && test:cov && build` — exactly what CI runs             |
 | `docker:build` / `docker:up` / `docker:down` / `docker:logs`                 | Compose wrappers                                                              |
 | `clean`                                                                      | Remove build artifacts                                                        |
 
@@ -232,9 +233,9 @@ and the fleet has no case that justifies that machinery.
 
 These files are byte-identical in every service, and `pnpm check:fleet` reports it when they are
 not: `.editorconfig`, `.npmrc`, `.prettierrc.yml`, `.prettierignore`, `eslint.config.js`,
-`renovate.json`, `scripts/check-fleet.mjs`, the three root `tsconfig*.json` files, `test/tsconfig.json`,
-`test/e2e/env-helper.ts`, `src/common/**` (auth hook, exception filter, API prefix, logger
-factory, validation errors), `src/config/{auth.config,env,validate-config}.ts`,
+`knip.json`, `renovate.json`, `scripts/check-fleet.mjs`, the three root `tsconfig*.json` files,
+`test/tsconfig.json`, `test/e2e/env-helper.ts`, `src/common/**` (auth hook, exception filter,
+API prefix, logger factory, validation errors), `src/config/{auth.config,env,validate-config}.ts`,
 `src/modules/health/health.service.ts`, the three workflow files, and the "Common rules" section
 of `AGENTS.md`.
 

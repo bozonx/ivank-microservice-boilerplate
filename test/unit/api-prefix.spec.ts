@@ -1,5 +1,9 @@
 import { describe, it, expect } from '@jest/globals';
-import { buildApiPrefix, normalizeBasePath } from '../../src/common/http/api-prefix.js';
+import {
+  buildApiPrefix,
+  buildPrefixedPath,
+  normalizeBasePath,
+} from '../../src/common/http/api-prefix.js';
 
 describe('buildApiPrefix (unit)', () => {
   it('returns the bare api path when no base path is set', () => {
@@ -25,5 +29,12 @@ describe('buildApiPrefix (unit)', () => {
   it('normalizes a base path on its own', () => {
     expect(normalizeBasePath('/x/')).toBe('x');
     expect(normalizeBasePath(undefined)).toBe('');
+  });
+
+  it('builds prefixed paths with buildPrefixedPath', () => {
+    expect(buildPrefixedPath(undefined, 'ui')).toBe('/ui');
+    expect(buildPrefixedPath('', '/ui')).toBe('/ui');
+    expect(buildPrefixedPath('app', 'ui')).toBe('/app/ui');
+    expect(buildPrefixedPath('/app/', '/ui')).toBe('/app/ui');
   });
 });

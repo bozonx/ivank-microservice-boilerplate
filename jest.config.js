@@ -43,16 +43,22 @@ const config = {
   bail: process.env.CI ? 1 : 0,
   verbose: process.env.CI === 'true',
 
-  collectCoverageFrom: ['src/**/*.ts'],
+  collectCoverageFrom: ['src/**/*.ts', '!src/main.ts'],
   coverageDirectory: 'coverage',
-  coveragePathIgnorePatterns: ['/node_modules/', '/dist/', '/test/', '.module.ts$', 'main.ts$'],
+  coveragePathIgnorePatterns: [
+    '/node_modules/',
+    '/dist/',
+    '/test/',
+    '\\.module\\.ts$',
+    'main\\.ts',
+  ],
   // A floor, not a target: it exists so a change cannot quietly delete coverage.
   coverageThreshold: {
     global: {
-      statements: 60,
-      branches: 55,
-      functions: 70,
-      lines: 60,
+      statements: 90,
+      branches: 80,
+      functions: 90,
+      lines: 90,
     },
   },
 
